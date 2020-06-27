@@ -22,7 +22,9 @@ IPAddress apmask   (255,255,255,0);
 
 ESP8266WebServer server(80);
 
-String html_head = "<html><head><meta charset='UTF-8'>\
+String html_head = "<html><head>";
+
+String html_meta =  "<meta charset='UTF-8'>\
                     <meta name='viewport' content='width=device-width,height=device-height,initial-scale=1.0,maximum-scale=1.0,user-scalable=no'>\
                     <meta name='apple-mobile-web-app-capable' content='yes'>\
                     <style type='text/css'>body {text-align: center;}</style></head><body><h1>蹦蹦1.0</h1><h2>当前设置</h2>";
@@ -45,6 +47,7 @@ void setup_server() {
 
 void handle_root() {
     uint16_t temp_duration_minute = duration_minute;
+    uint16_t prev_duration_minute = duration_minute;
     if (server.hasArg("duration_minute")) {
         temp_duration_minute = server.arg("duration_minute").toInt();
         if (temp_duration_minute >= 0 && temp_duration_minute <=60) {
@@ -52,16 +55,21 @@ void handle_root() {
         }
     }
     uint16_t temp_humi_th = humi_th;
+    uint16_t prev_humi_th = humi_th;
     if (server.hasArg("humi_th")) {
         temp_humi_th = server.arg("humi_th").toInt();
         if (temp_humi_th >= 20 && temp_humi_th <=100) {
             humi_th = temp_humi_th;
         }
     }    
-    if (humi_th != temp_humi_th || duration_minute != temp_duration_minute) {
+    if (humi_th != prev_humi_th || duration_minute != prev_duration_minute) {
       write_config();
     }
-    String html = html_head;
+    String html_my_meta;
+    if (server.args() > 0) {
+      html_my_meta = "<meta http-equiv='refresh' content='0;url=/'>"; 
+    }
+    String html = html_head + html_my_meta + html_meta;
     humi = sensor.get_data(true);
     html += "<p>侦测间隔 " + String(duration_minute) + " 分钟</p>";
     html += "<p>土壤湿度阈值 " + String(humi_th) + " % </p>";
@@ -94,8 +102,12 @@ void read_config() {
     if (temp_humi_th >= 20 && temp_humi_th <=100) {
         humi_th = temp_humi_th;
     }    
+    Serial.print("Load ");
+    Serial.println(duration_minute);
 }
 void write_config() {
+    Serial.print("Save ");
+    Serial.println(duration_minute);
     EEPROMWriteInt(E_DM_ADDR,duration_minute);
     EEPROMWriteInt(E_TH_ADDR,humi_th);
     EEPROM.commit();
@@ -121,6 +133,7 @@ unsigned int EEPROMReadInt(int p_address) {
 void setup() {
   Serial.begin(115200);
   while (!Serial) {}
+  init_config();
   read_config();
   motor.begin(15);
   setup_server();
